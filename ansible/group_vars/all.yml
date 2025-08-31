@@ -1,1 +1,10 @@
+phish_domain: phish.domain.com
+redirect_domain: login.domain.com
 
+mailgun_smtp_server: smtp.mailgun.org
+mailgun_smtp_port: 587
+mailgun_smtp_user: postmaster@mg.domain.com
+mailgun_smtp_pass: YOUR_MAILGUN_API_KEY
+
+admin_email: alerts@domain.com
+gophish_admin_password: ChangeMe123!

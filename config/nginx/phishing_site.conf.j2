@@ -1,0 +1,31 @@
+server {
+    listen 80;
+    server_name {{ phishing_domain }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name {{ phishing_domain }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ phishing_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ phishing_domain }}/privkey.pem;
+
+    include snippets/geoip-block.conf;
+
+    location / {
+        proxy_pass http://{{ gophish_internal_ip }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Anti-bot: block known crawlers and previewers
+    if ($http_user_agent ~* (facebookexternalhit|Slackbot|Twitterbot|TelegramBot|curl|wget|axios|Go-http-client|python-requests)) {
+        return 444;
+    }
+
+    access_log /var/log/nginx/{{ phishing_domain }}.access.log;
+    error_log /var/log/nginx/{{ phishing_domain }}.error.log;
+}

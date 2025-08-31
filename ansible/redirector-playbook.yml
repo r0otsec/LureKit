@@ -1,1 +1,77 @@
+---
+- name: Hardened Phishing Redirector (NGINX + TLS + GeoIP)
+  hosts: redirector
+  become: yes
 
+  vars:
+    phishing_domain: "login.domain.com"
+    gophish_internal_ip: "YOUR_GOPHISH_PRIVATE_IP"  # e.g. 10.0.0.X if on same VPC
+    country_code: "GB"  # UK-only access
+    email_for_tls: "your-email@domain.com"
+
+  tasks:
+    - name: Update packages and install deps
+      apt:
+        name:
+          - nginx
+          - curl
+          - unzip
+          - fail2ban
+          - libmaxminddb0
+          - libmaxminddb-dev
+          - mmdb-bin
+          - geoipupdate
+        update_cache: yes
+
+    - name: Install Certbot for TLS
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Obtain SSL certificate from Let's Encrypt
+      command: >
+        certbot --nginx --non-interactive --agree-tos
+        -m {{ email_for_tls }}
+        -d {{ phishing_domain }}
+
+    - name: Copy phishing NGINX config
+      template:
+        src: "config/nginx/phishing_site.conf.j2"
+        dest: "/etc/nginx/sites-available/{{ phishing_domain }}"
+      notify: Reload NGINX
+
+    - name: Enable phishing site
+      file:
+        src: "/etc/nginx/sites-available/{{ phishing_domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ phishing_domain }}"
+        state: link
+
+    - name: Disable default site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Deploy GeoIP country block config
+      copy:
+        src: "config/nginx/geoip-block.conf"
+        dest: "/etc/nginx/snippets/geoip-block.conf"
+
+    - name: Restart NGINX after config changes
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: Enable fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Reload NGINX
+      service:
+        name: nginx
+        state: reloaded

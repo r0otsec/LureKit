@@ -1,1 +1,107 @@
+---
+- name: Deploy and Harden GoPhish
+  hosts: gophish
+  become: yes
 
+  vars:
+    gophish_version: "v0.12.1"
+    gophish_download_url: "https://github.com/gophish/gophish/releases/download/{{ gophish_version }}/gophish-{{ gophish_version }}-linux-64bit.zip"
+
+  tasks:
+
+    - name: Update and install dependencies
+      apt:
+        name:
+          - unzip
+          - ufw
+          - fail2ban
+        update_cache: yes
+
+    - name: Allow SSH through UFW BEFORE enabling
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow GoPhish Admin UI (3333)
+      ufw:
+        rule: allow
+        port: "3333"
+        proto: tcp
+
+    - name: Allow GoPhish phishing page (80)
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Enable UFW safely
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Download GoPhish binary
+      get_url:
+        url: "{{ gophish_download_url }}"
+        dest: /opt/gophish.zip
+
+    - name: Create /opt/gophish directory
+      file:
+        path: /opt/gophish
+        state: directory
+        mode: '0755'
+
+    - name: Extract GoPhish
+      unarchive:
+        src: /opt/gophish.zip
+        dest: /opt/gophish
+        remote_src: yes
+
+    - name: Replace default config.json with hardened version
+      copy:
+        src: "../config/gophish/config.json"
+        dest: /opt/gophish/config.json
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create GoPhish systemd service
+      copy:
+        dest: /etc/systemd/system/gophish.service
+        content: |
+          [Unit]
+          Description=GoPhish Phishing Framework
+          After=network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/opt/gophish/gophish
+          WorkingDirectory=/opt/gophish
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reexec
+
+    - name: Enable GoPhish to start on boot
+      systemd:
+        name: gophish
+        enabled: yes
+
+    - name: Start GoPhish service
+      systemd:
+        name: gophish
+        state: started
+
+    - name: Ensure fail2ban is started and enabled
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    - name: Clean up GoPhish zip archive
+      file:
+        path: /opt/gophish.zip
+        state: absent
