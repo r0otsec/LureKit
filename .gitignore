@@ -1,0 +1,19 @@
+# LureKit ignore rules
+
+.env
+*.log
+*.sqlite
+*.pem
+*.crt
+*.key
+
+.DS_Store
+*.swp
+*.bak
+__pycache__/
+
+*.zip
+*.tar
+*.gz
+
+gophish/
