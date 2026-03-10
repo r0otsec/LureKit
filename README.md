@@ -1,5 +1,3 @@
-# LureKit
-
 <p align="center">
   <img src="https://raw.githubusercontent.com/JonnyPake/LureKit/refs/heads/main/images/LureKitLogo.png" alt="lurekit" width="450" height="450"/>
 </p>
